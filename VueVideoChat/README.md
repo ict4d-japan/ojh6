@@ -57,3 +57,18 @@ Deploy!
 ``` bash
 npm run deploy:twilio-cli
 ```
+
+NOTE: The Twilio Function that provides access tokens via a passcode should NOT be used in a production environment. The passcode will expire after one week. To generate a new passcode, redeploy the app:
+``` bash
+npm run deploy:twilio-cli -- --override
+```
+
+View app details:
+``` bash
+twilio rtc:apps:video:view
+```
+
+Delete the app:
+``` bash
+twilio rtc:apps:video:delete
+```

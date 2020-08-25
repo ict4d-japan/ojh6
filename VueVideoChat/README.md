@@ -1,6 +1,6 @@
 # A demo Video chat app using Vue.js
-   
-## Prerequsite
+
+## Prerequisite
 
 To run this project, you need to have:
 
@@ -20,7 +20,7 @@ cd into the project:
 cd VueVideoChat
 ```
 
-Install dependecies:
+Install dependencies:
 
 ``` bash
 npm install
@@ -35,3 +35,25 @@ npm run dev
 The app should now be accessible from http://localhost:8080
 
 And that's it. You can read more about how it was built [here](https://blog.twilio.com)
+
+## Deploy video chat app using the Twilio Runtime
+
+Install the Twilio CLI:
+``` bash
+npm install twilio-cli -g
+```
+
+Login to your Twilio account using your Account SID and Auth Token:
+``` bash
+twilio login  
+```
+
+Install the RTC plugin:
+``` bash
+twilio plugins:install @twilio-labs/plugin-rtc
+```
+
+Deploy!
+``` bash
+npm run deploy:twilio-cli
+```

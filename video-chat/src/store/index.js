@@ -12,8 +12,8 @@ import axios from "axios";
 
 import { db } from "../../firebase/firestore"
 
-
 const TWILIO_DOMAIN = ""
+
 
 export default new Vuex.Store({
   state() {
@@ -30,12 +30,15 @@ export default new Vuex.Store({
       tracks: {},
       messages: [],
       members_unsubscribe: null,
-      message_unsubscribe: null
+      message_unsubscribe: null,
+      changed_unsubscribe: null,
+      changed_member: null,
+      remove_member: null
     }
   },
   getters:{
     user(state){
-      return {username: state.username,sid: state.sid,facilitator: state.facilitator}
+      return {username: state.username,sid: state.sid,facilitator: state.facilitator,user: state.user}
     },
     members(state){
       return state.members
@@ -51,7 +54,13 @@ export default new Vuex.Store({
     },
     messages(state){
       return state.messages
-    }            
+    },
+    changed_member(state){
+      return state.changed_member
+    },
+    remove_member(state){
+      return state.remove_member
+    }                                             
 
     
   },
@@ -59,9 +68,10 @@ export default new Vuex.Store({
     set_user(state,payload){
       state.username = payload.username
       state.user = payload.room.localParticipant
+      state.sid = payload.room.localParticipant.sid
       state.facilitator = payload.facilitator
       state.signin = true
-      state.active_room = payload.room
+      state.active_room = payload.room      
     },
     leave(state){
 
@@ -137,6 +147,25 @@ export default new Vuex.Store({
           state.twilio_participants.splice(index, 1);
         }
       });
+    },
+    replace_members(state,payload){
+      state.members = payload
+    },    
+    add_member(state,payload){
+      state.members.push(payload)
+    },
+    update_member(state,payload){
+      state.members.forEach((m,i)=>{
+        if(m.sid == payload.sid){
+          state.members[i] = payload
+        }
+      })
+    },    
+    remove_member(state,payload){
+      state.remove_member = payload
+    },        
+    changed_member(state,payload){
+      state.changed_member = payload
     }
 
   },  
@@ -156,8 +185,7 @@ export default new Vuex.Store({
         .get(`https://${TWILIO_DOMAIN}/video-token`)
         .then(async (body) => {
           const token = body.data.token
-          console.debug(token)
-
+     
           //Twilio.connect(token, connectOptions)
           return await Twilio.connect(token, connectOptions)          
             .then((room) => {
@@ -180,7 +208,7 @@ export default new Vuex.Store({
                 state: room.localParticipant.state,
                 facilitator: payload.facilitator,
                 score: 50,
-                long: 0,
+                long_score: 0,
                 created_at: new Date().getTime()
               })              
 
@@ -244,14 +272,33 @@ export default new Vuex.Store({
         this.members_unsubscribe()
         this.members_unsubscribe = null
       }
-      this.members_unsubscribe = db.collection("rooms").doc(state.active_room.sid).collection('members').where('state', "==",'connected').orderBy('created_at').onSnapshot(function(querySnapshot) {
+
+      this.members_unsubscribe = db.collection("rooms").doc(state.active_room.sid).collection('members').where('state', "==",'connected').orderBy('created_at').onSnapshot(function(snapshot) {
+        var members = [];
+        snapshot.forEach(function(doc) {          
+          members.push(doc.data())    
+        })
+        commit('replace_members',members)
+      })
+
+      if (this.changed_unsubscribe) {
+        console.warn('listener is running. ', this.changed_unsubscribe )
+        this.changed_unsubscribe()
+        this.changed_unsubscribe = null
+      }      
+
+      this.changed_unsubscribe = db.collection("rooms").doc(state.active_room.sid).collection('members').where('state', "==",'connected').orderBy('created_at').onSnapshot(function(snapshot) {
           var members = [];
-          querySnapshot.forEach(function(doc) {
-              members.push(doc.data());
-          });
-          state.members = members
-          console.log(members)
+          snapshot.docChanges().forEach(function(change) {                
+              if (change.type === "modified") {
+                commit('changed_member',change.doc.data())
+              }      
+              if (change.type === "removed") {
+                commit('remove_member',change.doc.data())
+              }                    
+          });          
       });
+      
 
       if (this.message_unsubscribe) {
         console.warn('listener is running. ', this.message_unsubscribe )
@@ -285,6 +332,11 @@ export default new Vuex.Store({
             this.message_unsubscribe()
             this.message_unsubscribe = null
           }          
+          if (this.changed_unsubscribe ) {
+            console.log('listener is stopping. ', this.changed_unsubscribe )
+            this.changed_unsubscribe()
+            this.changed_unsubscribe = null
+          }               
         },
     save_message({commit,state},payload){
 

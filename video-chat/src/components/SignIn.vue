@@ -39,7 +39,6 @@
 
 <script>
 
-
 export default {
   data() {
     return {
@@ -49,7 +48,7 @@ export default {
       disabled: false,
       room: 'ICT4D',
       room_options: [
-        'ICT4D'
+        'ICT4D','test'
       ]
     };
   },

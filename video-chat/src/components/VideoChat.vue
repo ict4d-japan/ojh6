@@ -18,28 +18,39 @@
           </q-card-section>
         </q-card>
       </div>
-      <div class="col-md-7">
+      <div class="col-7">
         <div class="row" id="my_track">
           <!-- my stream -->
           <div class="col-4">
             <q-card class="my_video">
               <q-card-actions>
                 <p class="username" v-if="user">{{user.username}}</p>
-                <div id="my_video" ref="my_video">
-                  <video autoplay :srcObject.prop="local_stream" mute="true"></video>
+                <div id="my_video"  ref="my_video">
+                  <video autoplay :srcObject.prop="local_stream" mute="true" style="width: 100%"></video>
                 </div>
               </q-card-actions>
 
               <q-card-actions>
-                <q-icon name="mic" size="sm" />
-                <q-icon name="videocam" size="sm" />
+                <q-icon name="mic" size="sm" color="green" @click="mic_mute(true)" v-if="local_audio"/>
+                <q-icon name="mic_off" size="sm"  color="red" @click="mic_mute(false)" v-if="!local_audio"/>
+                <q-icon name="videocam" size="sm" color="green" @click="video_mute(true)" v-if="local_video" />
+                <q-icon name="videocam_off" size="sm" color="red"  @click="video_mute(false)" v-if="!local_video" />                
                 <q-space />
                 <q-btn @click="leave" flat label="leave" name="leave" />
               </q-card-actions>
             </q-card>
           </div>
-          <div class="col-8">
-            <div id="result-div"></div>
+          <div class="col-7">      
+            <div class="row q-pa-sm">   
+            <div id="result-div" ></div>
+            </div>
+
+            <div>      
+            <div class="overlay"  v-if="warning">
+               <div class="txt">{{warning}}</div>
+            </div>
+            </div>
+
           </div>
         </div>
 
@@ -65,12 +76,16 @@
                 <q-btn flat color="primary" :label="get_member_info(v,'long_score')" />
                 <q-btn  label="長い" color="grey" rounded size="md" @click="add_long_score(v,10)"/>
                 <q-btn  label="長くない" color="primary" rounded size="sm" @click="add_long_score(v,-10)"/>
+        
+                <q-btn push color="primary" round icon="thumb_up" size="sm" @click="add_score(v,10)"/>
+                <q-btn push color="red" round icon="thumb_down" size="sm" @click="add_score(v,-10)"/>                  
+                
               </template>
             </q-card-actions>
           </q-card>
         </div>
       </div>
-      <div class="col-md-2">
+      <div class="col-2">
         <q-card>
           <q-card-section class="bg-teal text-white">
             <div class="text-h6">Logs</div>
@@ -106,6 +121,8 @@ import firebase from 'firebase/app'
 //const SpeechToTextV1 = require("ibm-watson/speech-to-text/v1");
 //const { IamAuthenticator } = require("ibm-watson/auth");
 
+const SPECIAL_WORDS = ['バルス','ザオリク']
+
 export default {
   data() {
     return {
@@ -117,6 +134,9 @@ export default {
       remote_members: [],
       members_info: {},
       remote_videos: [],
+      local_video: true,
+      local_audio: true,
+      warning: false,      
     };
   },
   watch: {
@@ -209,6 +229,27 @@ export default {
       }
       this.$store.dispatch("leave");
     },
+    video_mute(state=true){
+      this.active_room.localParticipant.videoTracks.forEach(publication => {
+        if(state){
+            publication.track.disable();
+        }else{
+            publication.track.enable();
+        }          
+          this.local_video = !state 
+      });
+    },
+    mic_mute(state=true){
+      console.log(state)
+      this.active_room.localParticipant.audioTracks.forEach(publication => {
+        if(state){          
+            publication.track.disable();
+        }else{
+            publication.track.enable();
+        }         
+        this.local_audio = !state 
+      });
+    },
     show_localstream() {
       // プレビュー画面の表示
       let self = this;
@@ -230,36 +271,49 @@ export default {
         if(member.score < 10 ){          
            klass="video1"
         }else if(member.score < 20 && member.score >= 10){
-          klass="video2"
+          klass="video1"
         }else if(member.score < 30 && member.score >= 20){
-          klass="video3"
+          klass="video2"
         }else if(member.score < 40 && member.score >= 30){
-          klass="video4"
+          klass="video3"
         }else if(member.score < 50 && member.score >= 40){
-          klass="video5"
+          klass="video4"
         }else if(member.score < 60 && member.score >= 50){
-          klass="video6"
+          klass="video5"
         }else if(member.score < 70 && member.score >= 60){
-          klass="video7"
+          klass="video6"
         }else if(member.score < 80 && member.score >= 70){
-          klass="video8"
+          klass="video7"
         }else if(member.score < 90 && member.score >= 80){
-          klass="video9"
-        }else if(member.score >= 90){
+          klass="video8"
+        }else if(member.score < 100 && member.score >= 90){
           klass="video9"          
+        }else if(member.score < 110 && member.score >= 100){
+          klass="video10"          
+        }else if(member.score < 120 && member.score >= 110){
+          klass="video11"          
+        }else if(member.score < 130 && member.score >= 120){
+          klass="video12"          
+        }else if(member.score < 140 && member.score >= 130 ){
+          klass="video13"          
+        }else if(member.score >= 140 ){
+          klass="video14"          
         }else{
           klass=""            
         }      
         let opacity=1.0
         console.log(member.long_score)
-        if(member.long_score < 60 && member.long_score >= 50 ){          
+
+        if(member.long_score < 50 && member.long_score >= 30 ){          
+           opacity = 0.9
+        }else if(member.long_score < 60 && member.long_score >= 50 ){          
            opacity = 0.8
         }else if(member.long_score < 70 && member.long_score >= 60 ){          
-           opacity = 0.5          
+           opacity = 0.5         
         }else if(member.long_score < 80 && member.long_score >= 70 ){          
-           opacity = 0.2        
+           opacity = 0.3        
         }else if(member.long_score < 100 && member.long_score >= 80 ){          
-           opacity = 0.1
+           opacity = 0.2
         }else if(member.long_score >= 100 ){          
            opacity = 0.0
         }else{
@@ -282,6 +336,12 @@ export default {
       }
 
     },
+    add_score(member,score=10){
+          db.collection('rooms').doc(this.active_room.sid).collection('members').doc(member.sid).update({
+            score: firebase.firestore.FieldValue.increment(score)
+        });
+    },
+
     add_long_score(member,score=10){
           db.collection('rooms').doc(this.active_room.sid).collection('members').doc(member.sid).update({
             long_score: firebase.firestore.FieldValue.increment(score)
@@ -322,9 +382,11 @@ export default {
               console.log(this.$refs["user_" + m.sid]);              
               console.log(this.$refs["video_" + m.sid]);
               if (this.$refs["video_" + m.sid][0].childNodes.length == 0) {
-                let v = this.tracks[m.sid]["video"].attach();
+                let v = this.tracks[m.sid]["video"].attach();        
                 v.style = "width: 100%;";
                 this.$refs["video_" + m.sid][0].appendChild(v);
+                let a = this.tracks[m.sid]["audio"].attach();
+                this.$refs["video_" + m.sid][0].appendChild(a);
               }
             }
           });
@@ -391,6 +453,16 @@ export default {
         console.debug(data);
       });
     },
+ 
+    display_warning(w){          
+          this.warning = w
+          if(w == 'ザオリク'){
+            setTimeout(function(){db.collection('rooms').doc(this.active_room.sid).collection('members').doc(this.user.sid).update({
+                  long_score: 0
+            })}.bind(this),2800);                    
+          }
+        setTimeout(function(){this.warning=false}.bind(this),3000)
+    },
     start_speach_to_text() {
       const rec = new webkitSpeechRecognition();
       rec.continuous = true;
@@ -415,13 +487,21 @@ export default {
             finalTranscript += transcript;
             var duration = new Date().getTime() - start.getTime();
             //console.log(duration / 1000);
+
+            SPECIAL_WORDS.forEach((w)=>{
+              if(finalTranscript.includes(w)){
+                 console.log(w)
+                 this.display_warning(w)
+                  return
+              }
+            })  
+            const message = finalTranscript;
             this.$store.dispatch("save_message", {
-              text: finalTranscript,
+              text: message,
               duration: duration / 1000,
               confidence: event.results[i][0].confidence,
             });
-          rec.stop(); 
-            this.start_speach_to_text();            
+
           } else {
             interimTranscript = transcript;
             this.recognition = true;
@@ -432,6 +512,11 @@ export default {
           '<i style="color:#ddd;">' +
           interimTranscript +
           "</i>";
+        
+        if(finalTranscript){       
+            this.start_speach_to_text();    
+        }
+ 
       };
 
       this.recognition = false;
@@ -482,8 +567,8 @@ export default {
 <style scoped>
 #my_video {
   opacity: 1;
-  min-width: 300px;
-
+  width: 350px;
+  min-width: 100px;
 }
 
 #my_video video {
@@ -533,14 +618,78 @@ export default {
   background-size: cover;
 }
 */
+
+.video14::before {
+  content: "";
+  position: absolute;
+  bottom: 70px;
+  right: 10px;
+  width: 220px;
+  height: 160px;
+  background: url("../assets/himawari_p9.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+
+.video13::before {
+  content: "";
+  position: absolute;
+  bottom: 70px;
+  right: 10px;
+  width: 200px;
+  height: 160px;
+  background: url("../assets/himawari_p8.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+
+.video12::before {
+  content: "";
+  position: absolute;
+  bottom: 60px;
+  right: 10px;
+  width: 180px;
+  height: 160px;
+  background: url("../assets/himawari_p7.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+
+.video11::before {
+  content: "";
+  position: absolute;
+  bottom: 70px;
+  right: 10px;
+  width: 180px;
+  height: 140px;
+  background: url("../assets/himawari_p6.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.video10::before {
+  content: "";
+  position: absolute;
+  bottom: 70px;
+  right: 10px;
+  width: 180px;
+  height: 120px;
+  background: url("../assets/himawari_p5.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
 .video9::before {
   content: "";
   position: absolute;
-  bottom: 20%;
-  right: -10%;
-  width: 50%;
-  height: 30%;
-  background: url("../assets/himawari_9.png");
+  bottom: 70px;
+  right: 10px;
+  width: 130px;
+  height: 100px;
+  background: url("../assets/himawari_p4.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -548,11 +697,11 @@ export default {
 .video8::before {
   content: "";
   position: absolute;
-  bottom: 20%;
-  right: 0px;
-  width: 40%;
-  height: 30%;
-  background: url("../assets/himawari_8.png");
+  bottom: 70px;
+  right: 10px;
+  width: 130px;
+  height: 100px;
+  background: url("../assets/himawari_p3.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -560,11 +709,11 @@ export default {
 .video7::before {
   content: "";
   position: absolute;
-  bottom: 20%;
-  right: 0px;
-  width: 30%;
-  height: 30%;
-  background: url("../assets/himawari_7.png");
+  bottom: 50px;
+  right: 10px;
+  width: 130px;
+  height: 100px;
+  background: url("../assets/himawari_p2.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -573,10 +722,10 @@ export default {
   content: "";
   position: absolute;
   bottom: 70px;
-  right: 18px;
-  width: 170px;
-  height: 120px;
-  background: url("../assets/himawari_6.png");
+  right: 0px;
+  width: 130px;
+  height: 100px;
+  background: url("../assets/himawari_p1.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -588,19 +737,21 @@ export default {
   right: 18px;
   width: 170px;
   height: 120px;
-  background: url("../assets/himawari_5.png");
+  /*
+  background: url("../assets/himawari_p1.png");
   background-size: contain;
   background-repeat: no-repeat;
+  */
 }
 
 .video4::before {
   content: "";
   position: absolute;
   bottom: 70px;
-  right: 18px;
-  width: 170px;
-  height: 120px;
-  background: url("../assets/himawari_4.png");
+  right: 10px;
+  width: 110px;
+  height: 100px;
+  background: url("../assets/himawari_n1.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -609,10 +760,10 @@ export default {
   content: "";
   position: absolute;
   bottom: 70px;
-  right: 18px;
-  width: 170px;
-  height: 120px;
-  background: url("../assets/himawari_3.png");
+  right: 10px;
+  width: 110px;
+  height: 100px;
+  background: url("../assets/himawari_n2.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -621,10 +772,10 @@ export default {
   content: "";
   position: absolute;
   bottom: 70px;
-  right: 18px;
-  width: 170px;
-  height: 120px;
-  background: url("../assets/himawari_2.png");
+  right: 10px;
+  width: 110px;
+  height: 100px;
+  background: url("../assets/himawari_n3.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
@@ -633,14 +784,55 @@ export default {
   content: "";
   position: absolute;
   bottom: 70px;
-  right: 18px;
-  width: 170px;
-  height: 120px;
-  background: url("../assets/himawari_1.png");
+  right: 10px;
+  width: 110px;
+  height: 100px;
+  background: url("../assets/himawari_n4.png");
   background-size: contain;
   background-repeat: no-repeat;
 }
 
+#warning{
+  text-align: center;
+  font-size: 180px;
+  color: red;
+  font-weight: bold;
+}
+
+.overlay {
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background-color:rgba(0, 0, 0, 0.85);
+    background: url(data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAABl0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuNUmK/OAAAAATSURBVBhXY2RgYNgHxGAAYuwDAA78AjwwRoQYAAAAAElFTkSuQmCC) repeat scroll transparent\9;
+    z-index:9999;
+    color:white;
+}
+
+
+.overlay {
+    text-align: center;
+}
+ 
+.overlay:before {
+    content: '';
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+    margin-right: -0.25em;
+}
+
+.txt {
+    display: inline-block;
+    vertical-align: middle;
+    padding: 10px 15px;
+    position:relative;
+    font-size: 300px;
+    color: red;
+    font-weight:bold;
+}
 
 
 </style>

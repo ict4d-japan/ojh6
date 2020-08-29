@@ -11,8 +11,7 @@ import Twilio, {
 import axios from "axios";
 
 import { db } from "../../firebase/firestore"
-
-const TWILIO_DOMAIN = ""
+import * as config from '../config'
 
 
 export default new Vuex.Store({
@@ -179,10 +178,10 @@ export default new Vuex.Store({
         name: payload.room,
         //logLevel: 'debug',
         audio: true,
-        video: { width: 400 }
+        video: { width: 400,height: 300 }
       }
       return await axios
-        .get(`https://${TWILIO_DOMAIN}/video-token`)
+        .get(`https://${config.TWILIO_DOMAIN}/video-token`)
         .then(async (body) => {
           const token = body.data.token
      
@@ -209,6 +208,7 @@ export default new Vuex.Store({
                 facilitator: payload.facilitator,
                 score: 50,
                 long_score: 0,
+                duration: 0,
                 created_at: new Date().getTime()
               })              
 

@@ -1,0 +1,2 @@
+nagisa==0.2.7
+google-cloud-firestore==1.2.0

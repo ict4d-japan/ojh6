@@ -94,7 +94,7 @@
           <q-card-section style="min-height: 500px;">
             <q-scroll-area style="height: 400px; ">
               <q-item v-for="(m,i) in reverse_messages" :key="i">
-                <q-item-section>
+                <q-item-section>        
                   <!-- <q-item-label>Single line item</q-item-label> -->
                   <q-item-label>{{m.body}}</q-item-label>
                 </q-item-section>
@@ -121,7 +121,7 @@ import firebase from 'firebase/app'
 //const SpeechToTextV1 = require("ibm-watson/speech-to-text/v1");
 //const { IamAuthenticator } = require("ibm-watson/auth");
 
-const SPECIAL_WORDS = ['バルス','ザオリク']
+const SPECIAL_WORDS = ['バルス','ザオリク','完全リセット']
 
 export default {
   data() {
@@ -137,6 +137,7 @@ export default {
       local_video: true,
       local_audio: true,
       warning: false,      
+      recognized: false
     };
   },
   watch: {
@@ -183,7 +184,13 @@ export default {
           })
       },
       deep: true,
-    },    
+    },  
+    messages: {
+      handler: function () {
+          this.special_words_effect(this.messages.slice(-1)[0].body)
+      },
+      deep: true,
+    },  
   },
   computed: {
     active_room() {
@@ -219,10 +226,11 @@ export default {
   mounted() {
     this.$store.dispatch("start_listener");
     this.show_localstream();
-    this.start_speach_to_text();
+    this.start_speech_to_text();
     /////this.watson_speech_to_text();
   },
   methods: {
+
     leave(event) {
       if (this.rec) {
         this.rec.stop();
@@ -246,6 +254,7 @@ export default {
             publication.track.disable();
         }else{
             publication.track.enable();
+            this.start_speech_to_text();   
         }         
         this.local_audio = !state 
       });
@@ -296,8 +305,10 @@ export default {
           klass="video12"          
         }else if(member.score < 140 && member.score >= 130 ){
           klass="video13"          
-        }else if(member.score >= 140 ){
+        }else if(member.score < 150 && member.score >= 140  ){
           klass="video14"          
+        }else if(member.score >= 150  ){
+          klass="video15"          
         }else{
           klass=""            
         }      
@@ -453,58 +464,68 @@ export default {
         console.debug(data);
       });
     },
- 
+     special_words_effect(mes){
+      for(let i = 0; i < SPECIAL_WORDS.length; i++){
+        if(mes.includes(SPECIAL_WORDS[i])){
+            console.log(SPECIAL_WORDS[i])
+            this.display_warning(SPECIAL_WORDS[i])
+            break
+          }             
+      } 
+    },
     display_warning(w){          
           this.warning = w
           if(w == 'ザオリク'){
             setTimeout(function(){db.collection('rooms').doc(this.active_room.sid).collection('members').doc(this.user.sid).update({
                   long_score: 0
             })}.bind(this),2800);                    
+          }else if (w == '完全リセット'){
+            this.members.forEach((m) =>{
+                db.collection('rooms').doc(this.active_room.sid).collection('members').doc(m.sid).update({
+                  score: 50,
+                  long_score: 0
+                })
+            })
+  
           }
         setTimeout(function(){this.warning=false}.bind(this),3000)
     },
-    start_speach_to_text() {
+    start_speech_to_text() {
+      console.log('start_speech')
       const rec = new webkitSpeechRecognition();
       rec.continuous = true;
       rec.interimResults = true;
+    
       rec.lang = "ja-JP";
-      if (this.rec) {
-        this.rec.stop();
-      }
-      this.rec = rec;
+    
+      //this.rec = rec;
 
       const resultDiv = document.querySelector("#result-div");
 
       let finalTranscript = "";
 
       let start = null;
-
+   
       rec.onresult = (event) => {
+        this.recognized = true
+
+        let confidence = 0
         let interimTranscript = ""; // 暫定(灰色)の認識結果
+
         for (let i = event.resultIndex; i < event.results.length; i++) {
           let transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-            var duration = new Date().getTime() - start.getTime();
+          if (event.results[i].isFinal) {            
+            finalTranscript += transcript;        
             //console.log(duration / 1000);
-
-            SPECIAL_WORDS.forEach((w)=>{
-              if(finalTranscript.includes(w)){
-                 console.log(w)
-                 this.display_warning(w)
-                  return
-              }
-            })  
-            const message = finalTranscript;
-            this.$store.dispatch("save_message", {
-              text: message,
-              duration: duration / 1000,
-              confidence: event.results[i][0].confidence,
-            });
-
+  
+             confidence =  event.results[i][0].confidence
+                this.$store.dispatch("save_message", {
+              text: finalTranscript,
+              duration: 0,
+              confidence: confidence,
+              });
           } else {
-            interimTranscript = transcript;
-            this.recognition = true;
+            interimTranscript = transcript;       
           }
         }
         resultDiv.innerHTML =
@@ -513,26 +534,26 @@ export default {
           interimTranscript +
           "</i>";
         
-        if(finalTranscript){       
-            this.start_speach_to_text();    
+        if(finalTranscript){     
+         finalTranscript = ""
+          //this.start_speech_to_text()
         }
  
       };
 
-      this.recognition = false;
-
       rec.onstart = () => {
         //console.log("on start");
+        this.recognized = false
       };
       rec.onend = () => {
         //console.log("on end");
       };
 
       rec.onerror = (e) => {
+        console.log(e)
         if (e.error === "no-speech") {
-          // 無音状態で一定時間が経過した、ということなので再度音声認識をスタート
-          rec.stop();
-          this.start_speach_to_text();
+          // 無音状態で一定時間が経過した、ということなので再度音声認識をスタート      
+          this.start_speech_to_text();
         }
       };
 
@@ -541,15 +562,16 @@ export default {
         start = new Date();
       };
       rec.onspeechend = () => {
-        //console.log("on speech end");
+        console.log("on speech end");
+      setTimeout(()=>{        
+        this.start_speech_to_text();   
+      },500);        
       };
       rec.onosundstart = () => {
         //console.log("on sound start");
       };
       rec.onsoundend = () => {
         //console.log("on sound end");
-        rec.stop();
-        this.start_speach_to_text();
       };
 
       rec.onaudiostart = () => {
@@ -618,6 +640,19 @@ export default {
   background-size: cover;
 }
 */
+
+.video15::before {
+  content: "";
+  position: absolute;
+  bottom: 70px;
+  right: 10px;
+  width: 300px;
+  height: 240px;
+  background: url("../assets/himawari_p10.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
 
 .video14::before {
   content: "";

@@ -2,3 +2,5 @@
 .DS_Store
 config.js
 video-chat/node_modules
+video-chat/dist
+video-chat/.firebase

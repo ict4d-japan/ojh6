@@ -62,5 +62,19 @@ def calc_sentiment(data, context):
                 'score': new_score
             })
 
+        # check if message contains a word of destruction
+        if 'バルス' in words.words:
+            docs = client.collection('rooms').document(
+                room_id).collection('members').where('state', '==', 'connected').stream()
+            for doc in docs:
+                doc_ref = client.collection('rooms').document(
+                    room_id).collection('members').document(doc.id)
+                doc_ref.update({
+                    'long_score': 100
+                })
+                print('Long score updated for {}'.format(doc.id))
+        else:
+            pass
+
     else:
         print('Confidence is low. Score has not been updated.')
